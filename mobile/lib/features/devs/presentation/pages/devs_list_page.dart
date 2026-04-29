@@ -19,9 +19,49 @@ class _DevsListPageState extends ConsumerState<DevsListPage> {
   bool _searching = false;
   Timer? _debounce;
 
+  // #1 — refresh ao voltar à lista
+  GoRouterDelegate? _delegate;
+  bool _wasAtRoot = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // #2 — sincroniza campo de pesquisa com o provider (widget recriado ou hot-restart)
+    final savedTerms = ref.read(searchTermsProvider);
+    if (savedTerms.isNotEmpty) {
+      _searching = true;
+      _searchCtrl.text = savedTerms;
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // #1 — ouve mudanças de rota através do routerDelegate
+    final delegate = GoRouter.of(context).routerDelegate;
+    if (delegate != _delegate) {
+      _delegate?.removeListener(_onRouteChanged);
+      _delegate = delegate;
+      _delegate!.addListener(_onRouteChanged);
+    }
+  }
+
+  void _onRouteChanged() {
+    final path = _delegate?.currentConfiguration.uri.path ?? '/';
+    final isAtRoot = path == '/';
+    // Só invalida quando regressa à lista (não no carregamento inicial)
+    if (isAtRoot && !_wasAtRoot) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.invalidate(devListProvider);
+      });
+    }
+    _wasAtRoot = isAtRoot;
+  }
+
   @override
   void dispose() {
     _debounce?.cancel();
+    _delegate?.removeListener(_onRouteChanged);
     _searchCtrl.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -42,9 +82,7 @@ class _DevsListPageState extends ConsumerState<DevsListPage> {
   }
 
   AsyncValue<List<Dev>> get _devsValue {
-    if (_searching) {
-      return ref.watch(devSearchProvider);
-    }
+    if (_searching) return ref.watch(devSearchProvider);
     return ref.watch(devListProvider).whenData((r) => r.devs);
   }
 
@@ -61,7 +99,7 @@ class _DevsListPageState extends ConsumerState<DevsListPage> {
                 controller: _searchCtrl,
                 focusNode: _focusNode,
                 textInputAction: TextInputAction.search,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: 'Pesquisar devs…',
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
@@ -103,7 +141,6 @@ class _DevsListPageState extends ConsumerState<DevsListPage> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Total count chip — only shown in list mode
           if (!_searching)
             listAsync.maybeWhen(
               data: (r) => Padding(
@@ -118,7 +155,8 @@ class _DevsListPageState extends ConsumerState<DevsListPage> {
 
           Expanded(
             child: _devsValue.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              // #3 — skeleton em vez de spinner
+              loading: () => const _ListSkeleton(),
               error: (err, _) => _ErrorState(
                 onRetry: () => ref.invalidate(
                   _searching ? devSearchProvider : devListProvider,
@@ -167,9 +205,132 @@ class _DevsListPageState extends ConsumerState<DevsListPage> {
   }
 }
 
-class _ErrorState extends StatelessWidget {
+// ---------------------------------------------------------------------------
+// #3 — Skeleton da lista
+// ---------------------------------------------------------------------------
+
+class _ListSkeleton extends StatefulWidget {
+  const _ListSkeleton();
+
+  @override
+  State<_ListSkeleton> createState() => _ListSkeletonState();
+}
+
+class _ListSkeletonState extends State<_ListSkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final base = Theme.of(context).colorScheme.onSurface;
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) {
+        final shade = base.withValues(alpha: 0.06 + _ctrl.value * 0.08);
+        return ListView.builder(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(top: 8),
+          itemCount: 6,
+          itemBuilder: (_, __) => _SkeletonCard(shade: shade),
+        );
+      },
+    );
+  }
+}
+
+class _SkeletonCard extends StatelessWidget {
+  const _SkeletonCard({required this.shade});
+
+  final Color shade;
+
+  Widget _box({double? w, double? h, bool circle = false}) => Container(
+        width: w,
+        height: h,
+        decoration: BoxDecoration(
+          color: shade,
+          shape: circle ? BoxShape.circle : BoxShape.rectangle,
+          borderRadius: circle ? null : BorderRadius.circular(8),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: cs.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.outlineVariant),
+        ),
+        child: Row(
+          children: [
+            _box(w: 56, h: 56, circle: true),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _box(w: 120, h: 16),
+                  const SizedBox(height: 8),
+                  _box(w: 180, h: 13),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _box(w: 56, h: 24),
+                      const SizedBox(width: 6),
+                      _box(w: 44, h: 24),
+                      const SizedBox(width: 6),
+                      _box(w: 68, h: 24),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// #5 — Error state com feedback de loading no retry
+// ---------------------------------------------------------------------------
+
+class _ErrorState extends StatefulWidget {
   const _ErrorState({required this.onRetry});
+
   final VoidCallback onRetry;
+
+  @override
+  State<_ErrorState> createState() => _ErrorStateState();
+}
+
+class _ErrorStateState extends State<_ErrorState> {
+  bool _loading = false;
+
+  void _handleRetry() {
+    setState(() => _loading = true);
+    widget.onRetry();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -189,8 +350,13 @@ class _ErrorState extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           FilledButton.tonal(
-            onPressed: onRetry,
-            child: const Text('Tentar novamente'),
+            onPressed: _loading ? null : _handleRetry,
+            child: _loading
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Tentar novamente'),
           ),
         ],
       ),

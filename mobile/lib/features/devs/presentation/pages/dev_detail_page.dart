@@ -21,6 +21,8 @@ class _DevDetailPageState extends ConsumerState<DevDetailPage>
   late final AnimationController _enterCtrl;
   late final Animation<double> _opacity;
   late final Animation<Offset> _slide;
+  // #5 — estado do botão de retry
+  bool _retrying = false;
 
   @override
   void initState() {
@@ -35,6 +37,15 @@ class _DevDetailPageState extends ConsumerState<DevDetailPage>
       begin: const Offset(0, 0.06),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _enterCtrl, curve: Curves.easeOutCubic));
+
+    // Se os dados já estão em cache (segunda visita), a animação nunca seria
+    // disparada pelo ref.listen porque o estado não muda. Arranca-a aqui.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (ref.read(devByIdProvider(widget.id)).hasValue) {
+        _enterCtrl.forward();
+      }
+    });
   }
 
   @override
@@ -47,15 +58,27 @@ class _DevDetailPageState extends ConsumerState<DevDetailPage>
   Widget build(BuildContext context) {
     ref.listen(devByIdProvider(widget.id), (_, next) {
       if (next.hasValue && !_enterCtrl.isCompleted) _enterCtrl.forward();
+      // #5 — reset do retry quando o provider resolve (com sucesso ou erro)
+      if ((next.hasValue || next.hasError) && _retrying) {
+        setState(() => _retrying = false);
+      }
     });
 
     final devAsync = ref.watch(devByIdProvider(widget.id));
 
     return Scaffold(
       appBar: AppBar(
-        title: devAsync.maybeWhen(
-          data: (dev) => Text('@${dev.nickname}'),
-          orElse: () => const Text('Perfil'),
+        // #4 — transição suave no título quando os dados chegam
+        title: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          transitionBuilder: (child, anim) =>
+              FadeTransition(opacity: anim, child: child),
+          child: devAsync.maybeWhen(
+            data: (dev) =>
+                Text('@${dev.nickname}', key: const ValueKey('title')),
+            orElse: () =>
+                const Text('Perfil', key: ValueKey('loading')),
+          ),
         ),
       ),
       body: devAsync.when(
@@ -106,10 +129,20 @@ class _DevDetailPageState extends ConsumerState<DevDetailPage>
             ),
             if (!isNotFound) ...[
               const SizedBox(height: 24),
+              // #5 — feedback imediato no botão de retry
               FilledButton.tonal(
-                onPressed: () =>
-                    ref.invalidate(devByIdProvider(widget.id)),
-                child: const Text('Tentar novamente'),
+                onPressed: _retrying
+                    ? null
+                    : () {
+                        setState(() => _retrying = true);
+                        ref.invalidate(devByIdProvider(widget.id));
+                      },
+                child: _retrying
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Tentar novamente'),
               ),
             ],
           ],
