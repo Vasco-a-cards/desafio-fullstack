@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Casts\PostgresArray;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
+/** @property list<string>|null $stack */
 class Dev extends Model
 {
     use HasUuids;
@@ -23,6 +25,6 @@ class Dev extends Model
 
     protected $casts = [
         'birth_date' => 'date:Y-m-d',
-        'stack' => \App\Casts\PostgresArray::class,
+        'stack' => PostgresArray::class,
     ];
 }

@@ -12,14 +12,15 @@ class StoreDevRequest extends FormRequest
         return true;
     }
 
+    /** @return array<string, list<mixed>> */
     public function rules(): array
     {
         return [
-            'nickname'   => ['required', 'string', 'max:32', 'unique:devs,nickname'],
-            'name'       => ['required', 'string', 'max:100'],
+            'nickname' => ['required', 'string', 'max:32', 'unique:devs,nickname'],
+            'name' => ['required', 'string', 'max:100'],
             'birth_date' => ['required', 'date_format:Y-m-d'],
-            'stack'      => ['nullable', 'array'],
-            'stack.*'    => ['required', 'string', 'max:32'],
+            'stack' => ['nullable', 'array'],
+            'stack.*' => ['required', 'string', 'max:32'],
         ];
     }
 

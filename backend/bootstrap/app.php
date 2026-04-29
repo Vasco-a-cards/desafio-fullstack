@@ -18,7 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
         //
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        $exceptions->render(function (\JsonException $e, Request $request) {
+        $exceptions->render(function (JsonException $e, Request $request) {
             return response()->json(['message' => 'Invalid JSON'], 400);
         });
 

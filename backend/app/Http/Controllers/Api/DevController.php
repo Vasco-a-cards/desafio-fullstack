@@ -23,11 +23,11 @@ class DevController extends Controller
         $query = Dev::query();
 
         if ($request->filled('terms')) {
-            $like = '%' . $request->query('terms') . '%';
+            $like = '%'.$request->query('terms').'%';
             $query->where(function ($q) use ($like) {
-                $q->whereRaw("unaccent(nickname) ILIKE unaccent(?)", [$like])
-                  ->orWhereRaw("unaccent(name) ILIKE unaccent(?)", [$like])
-                  ->orWhereRaw("unaccent(immutable_array_to_string(stack)) ILIKE unaccent(?)", [$like]);
+                $q->whereRaw('unaccent(nickname) ILIKE unaccent(?)', [$like])
+                    ->orWhereRaw('unaccent(name) ILIKE unaccent(?)', [$like])
+                    ->orWhereRaw('unaccent(immutable_array_to_string(stack)) ILIKE unaccent(?)', [$like]);
             });
         }
 
@@ -35,7 +35,7 @@ class DevController extends Controller
 
         return DevResource::collection($devs)
             ->response()
-            ->header('X-Total-Count', $total);
+            ->header('X-Total-Count', (string) $total);
     }
 
     public function store(StoreDevRequest $request, CreateDevAction $action): JsonResponse

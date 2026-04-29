@@ -6,6 +6,7 @@ use Illuminate\Contracts\Database\Eloquent\CastsAttributes;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 
+/** @implements CastsAttributes<list<string>|null, mixed> */
 class PostgresArray implements CastsAttributes
 {
     /**
@@ -28,16 +29,19 @@ class PostgresArray implements CastsAttributes
         $escaped = array_map(function (string $item): string {
             $item = str_replace('\\', '\\\\', $item); // backslash first
             $item = str_replace('"', '\\"', $item);   // then double-quote
-            return '"' . $item . '"';
+
+            return '"'.$item.'"';
         }, $value);
 
-        return '{' . implode(',', $escaped) . '}';
+        return '{'.implode(',', $escaped).'}';
     }
 
     /**
      * Postgres text[] literal → PHP array
      * Handles both quoted {"a","b"} and unquoted {a,b} elements,
      * plus escaped chars inside quoted elements.
+     *
+     * @return list<string>|null
      */
     public function get(Model $model, string $key, mixed $value, array $attributes): ?array
     {
