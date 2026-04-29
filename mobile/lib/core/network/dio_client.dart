@@ -4,7 +4,7 @@ import '../errors/api_exception.dart';
 
 const _baseUrl = String.fromEnvironment(
   'API_BASE_URL',
-  defaultValue: 'http://localhost:8000/api',
+  defaultValue: 'http://localhost:8000',
 );
 
 Dio buildDioClient() {

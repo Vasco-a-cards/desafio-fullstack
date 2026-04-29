@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/errors/api_exception.dart';
 import '../providers/devs_providers.dart';
+import '../widgets/date_scroll_picker.dart';
 
 class DevCreatePage extends ConsumerStatefulWidget {
   const DevCreatePage({super.key});
@@ -64,13 +65,11 @@ class _DevCreatePageState extends ConsumerState<DevCreatePage> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
-    final initial = _birthDate ?? DateTime(now.year - 25, now.month, now.day);
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(1900),
-      lastDate: now,
-      helpText: 'Data de nascimento',
+    final picked = await showDateScrollPicker(
+      context,
+      initialDate: _birthDate ?? DateTime(now.year - 25, now.month, now.day),
+      minDate: DateTime(1900),
+      maxDate: now,
     );
     if (picked == null || !mounted) return;
     setState(() {
