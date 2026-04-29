@@ -4,7 +4,7 @@ part 'dev_model.freezed.dart';
 part 'dev_model.g.dart';
 
 @freezed
-class Dev with _$Dev {
+abstract class Dev with _$Dev {
   const factory Dev({
     required String id,
     required String nickname,
