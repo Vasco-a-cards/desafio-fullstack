@@ -1,0 +1,12 @@
+.dart_tool/
+.pub-cache/
+.idea/
+.vscode/
+android/
+ios/
+linux/
+macos/
+windows/
+test/
+integration_test/
+coverage/

@@ -1,0 +1,40 @@
+name: dynamik
+
+services:
+  app:
+    image: vsk0/dynamik-devs-api:latest
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: on-failure
+
+  frontend:
+    image: vsk0/dynamik-devs-frontend:latest
+    ports:
+      - "3000:80"
+    depends_on:
+      - app
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: dynamik
+      POSTGRES_USER: dynamik
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - dynamik_pgdata:/var/lib/postgresql/data
+      - ./backend/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dynamik -d dynamik"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  dynamik_pgdata:
